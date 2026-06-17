@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaMonitor — Water Quality Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2e45;
+    --accent: #00d4aa;
+    --accent2: #0ea5e9;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --ph-color: #a78bfa;
+    --do-color: #00d4aa;
+    --temp-color: #f59e0b;
+    --ammonia-color: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+    animation: fadeDown 0.6s ease;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .logo-text h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .logo-text p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .header-right {
+    text-align: right;
+  }
+
+  .farm-name {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .timestamp {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    animation: fadeDown 0.6s ease 0.1s both;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+
+  /* Metric Cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--card-color);
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-color);
+  }
+
+  .metric-card::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; right: -20px;
+    width: 80px; height: 80px;
+    background: var(--card-color);
+    opacity: 0.05;
+    border-radius: 50%;
+  }
+
+  .metric-card:nth-child(1) { --card-color: var(--ph-color); animation-delay: 0.1s; }
+  .metric-card:nth-child(2) { --card-color: var(--do-color); animation-delay: 0.2s; }
+  .metric-card:nth-child(3) { --card-color: var(--temp-color); animation-delay: 0.3s; }
+  .metric-card:nth-child(4) { --card-color: var(--ammonia-color); animation-delay: 0.4s; }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .metric-value {
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--card-color);
+    font-family: 'Space Mono', monospace;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .metric-unit {
+    font-size: 14px;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+
+  .metric-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .status-ok { background: rgba(0,212,170,0.1); color: var(--accent); }
+  .status-warn { background: rgba(245,158,11,0.1); color: var(--warn); }
+  .status-danger { background: rgba(239,68,68,0.1); color: var(--danger); }
+
+  .metric-range {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  /* Chart section */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    animation: fadeUp 0.6s ease 0.4s both;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .chart-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  canvas {
+    width: 100% !important;
+  }
+
+  /* Cage table */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s ease 0.5s both;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Space Mono', monospace;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid rgba(31,46,69,0.5);
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .cage-id {
+    font-family: 'Space Mono', monospace;
+    color: var(--accent2);
+    font-size: 12px;
+  }
+
+  /* Alert panel */
+  .alerts-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    animation: fadeUp 0.6s ease 0.6s both;
+  }
+
+  .alert-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(31,46,69,0.5);
+    align-items: flex-start;
+  }
+
+  .alert-item:last-child { border-bottom: none; }
+
+  .alert-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .alert-warn { background: rgba(245,158,11,0.1); }
+  .alert-ok { background: rgba(0,212,170,0.1); }
+  .alert-info { background: rgba(14,165,233,0.1); }
+
+  .alert-text { font-size: 13px; color: var(--text); }
+  .alert-time { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: 'Space Mono', monospace; }
+
+  /* Bottom grid */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Add data form */
+  .add-reading {
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    animation: fadeUp 0.6s ease 0.7s both;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .form-group input, .form-group select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    color: #0a0f1a;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .section-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: repeat(2, 1fr); }
+    .legend { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🐟</div>
+      <div class="logo-text">
+        <h1>AQUAMONITOR</h1>
+        <p>Water Quality Intelligence System</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="farm-name">CAGE FARM — LAKE VICTORIA</div>
+      <div class="timestamp" id="clock">Loading...</div>
+    </div>
+  </header>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span>System Active — All sensors reporting normally</span>
+    <span style="margin-left:auto; color: var(--muted); font-family: 'Space Mono', monospace; font-size:11px;">Last sync: <span id="last-sync">just now</span></span>
+  </div>
+
+  <!-- Metric Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card" id="card-ph">
+      <div class="metric-label">pH Level</div>
+      <div class="metric-value" id="val-ph">7.2<span class="metric-unit"></span></div>
+      <div class="metric-status status-ok" id="status-ph">✓ Optimal</div>
+      <div class="metric-range">Optimal: 6.5 – 8.5</div>
+    </div>
+    <div class="metric-card" id="card-do">
+      <div class="metric-label">Dissolved Oxygen</div>
+      <div class="metric-value" id="val-do">6.8<span class="metric-unit"> mg/L</span></div>
+      <div class="metric-status status-ok" id="status-do">✓ Optimal</div>
+      <div class="metric-range">Optimal: &gt;5.0 mg/L</div>
+    </div>
+    <div class="metric-card" id="card-temp">
+      <div class="metric-label">Temperature</div>
+      <div class="metric-value" id="val-temp">26.4<span class="metric-unit">°C</span></div>
+      <div class="metric-status status-ok" id="status-temp">✓ Optimal</div>
+      <div class="metric-range">Optimal: 22 – 28°C</div>
+    </div>
+    <div class="metric-card" id="card-ammonia">
+      <div class="metric-label">Ammonia (NH₃)</div>
+      <div class="metric-value" id="val-ammonia">0.4<span class="metric-unit"> ppm</span></div>
+      <div class="metric-status status-warn" id="status-ammonia">⚠ Monitor</div>
+      <div class="metric-range">Safe: &lt;0.5 ppm</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">7-Day Trend Analysis</div>
+          <div class="chart-subtitle">All parameters — daily readings</div>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--ph-color)"></div>pH</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--do-color)"></div>DO</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--temp-color)"></div>Temp</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--ammonia-color)"></div>NH₃</div>
+        </div>
+      </div>
+      <canvas id="trendChart" height="200"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Parameter Status</div>
+          <div class="chart-subtitle">Current reading vs safe range</div>
+        </div>
+      </div>
+      <canvas id="gaugeChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Bottom grid -->
+  <div class="bottom-grid">
+
+    <!-- Cage Table -->
+    <div class="table-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Cage-by-Cage Readings</div>
+          <div class="chart-subtitle">Today's morning round</div>
+        </div>
+      </div>
+      <table id="cageTable">
+        <thead>
+          <tr>
+            <th>Cage</th>
+            <th>pH</th>
+            <th>DO (mg/L)</th>
+            <th>Temp (°C)</th>
+            <th>NH₃ (ppm)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="cageBody">
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alerts-panel">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Recent Alerts</div>
+          <div class="chart-subtitle">System notifications</div>
+        </div>
+      </div>
+      <div id="alertsList">
+        <div class="alert-item">
+          <div class="alert-icon alert-warn">⚠️</div>
+          <div>
+            <div class="alert-text">Cage C3 — Ammonia approaching threshold (0.48 ppm)</div>
+            <div class="alert-time">06:30 AM today</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon alert-ok">✅</div>
+          <div>
+            <div class="alert-text">All cages — DO levels restored to optimal range</div>
+            <div class="alert-time">05:15 AM today</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon alert-info">📊</div>
+          <div>
+            <div class="alert-text">Weekly report generated — 7-day survival rate 94.2%</div>
+            <div class="alert-time">Yesterday 08:00 AM</div>
+          </div>
+        </div>
+        <div class="alert-item">
+          <div class="alert-icon alert-warn">⚠️</div>
+          <div>
+            <div class="alert-text">Cage C1 — pH dip to 6.6 during night cycle, recovered</div>
+            <div class="alert-time">Yesterday 02:40 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <br>
+
+  <!-- Add Reading -->
+  <div class="add-reading">
+    <div class="section-title">Log New Reading</div>
+    <div class="section-sub">Enter parameters manually to update dashboard</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cage ID</label>
+        <select id="inp-cage">
+          <option>C1</option><option>C2</option><option>C3</option><option>C4</option><option>C5</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>pH</label>
+        <input type="number" id="inp-ph" placeholder="e.g. 7.2" step="0.1" min="0" max="14">
+      </div>
+      <div class="form-group">
+        <label>DO (mg/L)</label>
+        <input type="number" id="inp-do" placeholder="e.g. 6.5" step="0.1" min="0">
+      </div>
+      <div class="form-group">
+        <label>Temperature (°C)</label>
+        <input type="number" id="inp-temp" placeholder="e.g. 26" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>Ammonia (ppm)</label>
+        <input type="number" id="inp-ammonia" placeholder="e.g. 0.3" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Stage</label>
+        <select id="inp-stage">
+          <option>Juvenile</option><option>Nursery</option><option>P1</option><option>Early Stage</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" onclick="logReading()">+ Log Reading</button>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// ── Clock ──────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleDateString('en-KE', { weekday:'short', day:'numeric', month:'short', year:'numeric' }) +
+    ' · ' + now.toLocaleTimeString('en-KE', { hour:'2-digit', minute:'2-digit' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Cage data ──────────────────────────────────────────
+const cageData = [
+  { id:'C1', ph:7.1, do:6.5, temp:26.2, ammonia:0.35 },
+  { id:'C2', ph:7.4, do:7.0, temp:25.9, ammonia:0.28 },
+  { id:'C3', ph:7.0, do:5.8, temp:26.8, ammonia:0.48 },
+  { id:'C4', ph:7.3, do:6.9, temp:26.1, ammonia:0.22 },
+  { id:'C5', ph:7.2, do:6.4, temp:26.5, ammonia:0.31 },
+];
+
+function getCageStatus(d) {
+  if (d.do < 4 || d.ammonia > 0.5 || d.ph < 6 || d.ph > 9) return '<span class="metric-status status-danger">✕ Alert</span>';
+  if (d.do < 5 || d.ammonia > 0.4 || d.temp > 29) return '<span class="metric-status status-warn">⚠ Monitor</span>';
+  return '<span class="metric-status status-ok">✓ Good</span>';
+}
+
+function renderCageTable(data) {
+  const tbody = document.getElementById('cageBody');
+  tbody.innerHTML = data.map(d => `
+    <tr>
+      <td class="cage-id">${d.id}</td>
+      <td>${d.ph}</td>
+      <td>${d.do}</td>
+      <td>${d.temp}</td>
+      <td style="color:${d.ammonia > 0.4 ? 'var(--warn)' : 'inherit'}">${d.ammonia}</td>
+      <td>${getCageStatus(d)}</td>
+    </tr>
+  `).join('');
+}
+renderCageTable(cageData);
+
+// ── Trend Chart ────────────────────────────────────────
+const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+const trendChart = new Chart(trendCtx, {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      {
+        label: 'pH',
+        data: [7.1, 7.3, 7.0, 7.4, 7.2, 7.3, 7.2],
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167,139,250,0.05)',
+        tension: 0.4, pointRadius: 3, borderWidth: 2
+      },
+      {
+        label: 'DO (mg/L)',
+        data: [6.2, 6.8, 5.9, 7.1, 6.5, 6.9, 6.8],
+        borderColor: '#00d4aa',
+        backgroundColor: 'rgba(0,212,170,0.05)',
+        tension: 0.4, pointRadius: 3, borderWidth: 2
+      },
+      {
+        label: 'Temp (°C)',
+        data: [25.8, 26.2, 27.1, 26.4, 25.9, 26.8, 26.4],
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.05)',
+        tension: 0.4, pointRadius: 3, borderWidth: 2
+      },
+      {
+        label: 'NH₃ (ppm ×10)',
+        data: [3.2, 2.8, 4.5, 3.1, 2.9, 4.1, 4.0],
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239,68,68,0.05)',
+        tension: 0.4, pointRadius: 3, borderWidth: 2
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        grid: { color: 'rgba(31,46,69,0.8)' },
+        ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } }
+      },
+      y: {
+        grid: { color: 'rgba(31,46,69,0.8)' },
+        ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } }
+      }
+    }
+  }
+});
+
+// ── Bar Chart ──────────────────────────────────────────
+const gaugeCtx = document.getElementById('gaugeChart').getContext('2d');
+new Chart(gaugeCtx, {
+  type: 'bar',
+  data: {
+    labels: ['pH', 'DO', 'Temp', 'NH₃×10'],
+    datasets: [
+      {
+        label: 'Current',
+        data: [7.2, 6.8, 26.4, 4.0],
+        backgroundColor: ['rgba(167,139,250,0.7)','rgba(0,212,170,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)'],
+        borderRadius: 6
+      },
+      {
+        label: 'Max Safe',
+        data: [8.5, 10, 28, 5],
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1,
+        borderRadius: 6
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } }
+      },
+      y: {
+        grid: { color: 'rgba(31,46,69,0.8)' },
+        ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 } }
+      }
+    }
+  }
+});
+
+// ── Log Reading ────────────────────────────────────────
+function logReading() {
+  const cage = document.getElementById('inp-cage').value;
+  const ph = parseFloat(document.getElementById('inp-ph').value);
+  const doVal = parseFloat(document.getElementById('inp-do').value);
+  const temp = parseFloat(document.getElementById('inp-temp').value);
+  const ammonia = parseFloat(document.getElementById('inp-ammonia').value);
+
+  if ([ph, doVal, temp, ammonia].some(isNaN)) {
+    alert('Please fill in all parameter fields.');
+    return;
+  }
+
+  // Update or add cage
+  const existing = cageData.find(c => c.id === cage);
+  if (existing) {
+    existing.ph = ph; existing.do = doVal; existing.temp = temp; existing.ammonia = ammonia;
+  } else {
+    cageData.push({ id: cage, ph, do: doVal, temp, ammonia });
+  }
+
+  renderCageTable(cageData);
+
+  // Update summary cards
+  const avg = arr => (arr.reduce((a,b) => a+b, 0) / arr.length).toFixed(1);
+  document.getElementById('val-ph').innerHTML = avg(cageData.map(c=>c.ph)) + '<span class="metric-unit"></span>';
+  document.getElementById('val-do').innerHTML = avg(cageData.map(c=>c.do)) + '<span class="metric-unit"> mg/L</span>';
+  document.getElementById('val-temp').innerHTML = avg(cageData.map(c=>c.temp)) + '<span class="metric-unit">°C</span>';
+  document.getElementById('val-ammonia').innerHTML = avg(cageData.map(c=>c.ammonia)) + '<span class="metric-unit"> ppm</span>';
+
+  // Add alert
+  const alertsList = document.getElementById('alertsList');
+  const now = new Date().toLocaleTimeString('en-KE', { hour:'2-digit', minute:'2-digit' });
+  const newAlert = document.createElement('div');
+  newAlert.className = 'alert-item';
+  newAlert.innerHTML = `
+    <div class="alert-icon alert-info">📝</div>
+    <div>
+      <div class="alert-text">${cage} reading logged — pH ${ph}, DO ${doVal}, Temp ${temp}°C, NH₃ ${ammonia}</div>
+      <div class="alert-time">${now} today</div>
+    </div>
+  `;
+  alertsList.prepend(newAlert);
+
+  document.getElementById('last-sync').textContent = 'just now';
+
+  // Clear inputs
+  ['inp-ph','inp-do','inp-temp','inp-ammonia'].forEach(id => document.getElementById(id).value = '');
+}
+</script>
+</body>
+</html>
